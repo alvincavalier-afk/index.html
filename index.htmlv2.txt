@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>i9 Sports FM 2.0 Diagnostic Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .issue-card:hover { transform: translateY(-2px); transition: all 0.2s; }
+        .category-tab.active { border-bottom: 3px solid #ab220f; color: #ab220f; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans leading-normal tracking-normal text-slate-900">
+
+    <nav class="bg-blue-900 p-4 shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center text-white">
+            <div class="flex items-center space-x-3 mb-4 md:mb-0">
+                <div class="bg-white p-1 rounded">
+                    <span class="text-blue-900 font-black text-xl px-1">i9</span>
+                </div>
+                <h1 class="text-xl font-bold uppercase tracking-wider">FM 2.0 Diagnostic Tracker</h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="text-center">
+                    <p class="text-xs uppercase opacity-75 font-bold">Total Logs</p>
+                    <p id="master-tally" class="text-2xl font-black">0</p>
+                </div>
+                <button onclick="exportToCSV()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded shadow-md text-sm uppercase">
+                    Export to CSV
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 md:p-8">
+        
+        <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+            <input type="text" id="searchInput" onkeyup="filterIssues()" placeholder="Search symptoms (e.g. 'spinner', 'double charge')..." 
+                   class="w-full p-4 border-2 border-slate-200 rounded-lg focus:border-blue-500 outline-none text-lg">
+            
+            <div id="categoryTabs" class="flex flex-wrap gap-4 mt-6 text-sm font-medium text-slate-500 uppercase tracking-tight">
+                </div>
+        </div>
+
+        <div id="issueGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            </div>
+    </main>
+
+    <script>
+        const fmIssues = [
+            { id: 1, category: "Home / Stats", symptom: "Broken Chart Image", flaw: "Server-side chart generator (ChartImg.axd) timed out." },
+            { id: 2, category: "Home / Stats", symptom: "PY Data Mismatch", flaw: "Logic failed to align the 2026 calendar with 2025." },
+            { id: 3, category: "Home / Stats", symptom: "Revenue Update Lag", flaw: "Revenue cache only refreshes once per hour." },
+            { id: 4, category: "Home / Stats", symptom: "Infinite Spinner", flaw: "UpdatePanel hang; server/client communication break." },
+            { id: 5, category: "Home / Stats", symptom: "Franchise Ghosting", flaw: "Session cookie for FranchiseID didn't overwrite." },
+            { id: 6, category: "Mobile/Touch", symptom: "Side-Scroll Struggle", flaw: "Tables fixed at 920px; not responsive." },
+            { id: 7, category: "Mobile/Touch", symptom: "Fat-Finger Fumble", flaw: "Rows too thin for touchscreens." },
+            { id: 8, category: "Mobile/Touch", symptom: "Keyboard Cover-Up", flaw: "Missing 'Scroll-into-view' code for virtual keyboards." },
+            { id: 9, category: "Mobile/Touch", symptom: "Stuck Hamburger", flaw: "mmenu library incompatible with modern gestures." },
+            { id: 10, category: "Mobile/Touch", symptom: "Pinch-to-Zoom Fatigue", flaw: "Missing Viewport scaling tags." },
+            { id: 11, category: "Mobile/Touch", symptom: "Tiny Calendar Fail", flaw: "Legacy desktop calendar tool used instead of native picker." },
+            { id: 12, category: "Mobile/Touch", symptom: "Orientation Shift", flaw: "Hard-coded overlay coordinates." },
+            { id: 13, category: "Mobile/Touch", symptom: "Hover Trap", flaw: "Touchscreens have no hover state for menus." },
+            { id: 14, category: "Mobile/Touch", symptom: "Slow Script Load", flaw: "Browser loading 15+ outdated JS files." },
+            { id: 15, category: "Mobile/Touch", symptom: "Drag-and-Drop Fail", flaw: "Mouse-down events ignore touch inputs." },
+            { id: 16, category: "Data / Forms", symptom: "Back-Button Trap", flaw: "ViewState security sequence broken." },
+            { id: 17, category: "Data / Forms", symptom: "30-Min Kick", flaw: "No 'stay alive' heartbeat for server sessions." },
+            { id: 18, category: "Data / Forms", symptom: "The Ghost Update", flaw: "Loaded from browser cache instead of database." },
+            { id: 19, category: "Data / Forms", symptom: "Tab-Key Jump", flaw: "Broken Tab Index in HTML." },
+            { id: 20, category: "Data / Forms", symptom: "Search Sensitivity", flaw: "Logic doesn't trim trailing spaces." },
+            { id: 21, category: "Data / Forms", symptom: "Auto-Fill Chaos", flaw: "Generic Field IDs confusing Chrome logic." },
+            { id: 22, category: "Data / Forms", symptom: "Form Reset Fail", flaw: "PostBack failed to wipe form memory." },
+            { id: 23, category: "Data / Forms", symptom: "Required Field Lie", flaw: "Mismatch between Frontend/Backend validation." },
+            { id: 24, category: "Data / Forms", symptom: "Timeout on Export", flaw: "Dataset exceeds server memory limits." },
+            { id: 25, category: "Data / Forms", symptom: "Dropdown Desync", flaw: "Trigger failed to refresh secondary list." },
+            { id: 26, category: "Financials", symptom: "Double Charge", flaw: "Pay button stayed active after first click." },
+            { id: 27, category: "Financials", symptom: "Split Payment Fail", flaw: "Cart logic restricted to one transaction ID." },
+            { id: 28, category: "Financials", symptom: "Sibling Discount Skip", flaw: "Siloed cart logic failed child count." },
+            { id: 29, category: "Financials", symptom: "1-Cent Offset", flaw: "Floating point math error in legacy code." },
+            { id: 30, category: "Financials", symptom: "Zombie Promo", flaw: "Calculation logic failed to reset on deletion." },
+            { id: 31, category: "Financials", symptom: "Waitlist Bypass", flaw: "URL vulnerability; direct link access." },
+            { id: 32, category: "Financials", symptom: "Tokenization Lag", flaw: "Bank/FM API handshake timeout." },
+            { id: 33, category: "Financials", symptom: "Revenue Mis-mapping", flaw: "Ledger points to wrong database bucket." },
+            { id: 34, category: "Financials", symptom: "Expired Quote", flaw: "Payment session expired during entry." },
+            { id: 35, category: "Financials", symptom: "Multi-Child Cap Fail", flaw: "Counter logic missed 'Active' status." },
+            { id: 36, category: "Ops / Reports", symptom: "HTML Email Gore", flaw: "Missing MIME headers in legacy mailer." },
+            { id: 37, category: "Ops / Reports", symptom: "Audit History Void", flaw: "Change-tracking logging not implemented." },
+            { id: 38, category: "Ops / Reports", symptom: "Label Alignment Warp", flaw: "Modern DPI vs fixed CSS positioning." },
+            { id: 39, category: "Ops / Reports", symptom: "Roster Email Delay", flaw: "Clogged server-side mail queue." },
+            { id: 40, category: "Ops / Reports", symptom: "Weather Alert Fail", flaw: "SMS gateway bulk-send timeout." },
+            { id: 41, category: "Ops / Reports", symptom: "Help Doc 'Black Screen'", flaw: "Azure storage permission error." },
+            { id: 42, category: "Ops / Reports", symptom: "Listen 360 Gap", flaw: "Listen360 API bridge sync failure." },
+            { id: 43, category: "Ops / Reports", symptom: "Alpha Roster Lag", flaw: "Unindexed database query." },
+            { id: 44, category: "Ops / Reports", symptom: "Training Result Gap", flaw: "LMS success message blocked by firewall." },
+            { id: 45, category: "Ops / Reports", symptom: "Schedule Builder Hang", flaw: "Memory leak in legacy JS builder." },
+            { id: 46, category: "Ops / Reports", symptom: "Job Posting Delay", flaw: "24-hour cache refresh cycle." },
+            { id: 47, category: "Ops / Reports", symptom: "Dynamic URL Failure", flaw: "URL rewriter doesn't handle modern characters." },
+            { id: 48, category: "Ops / Reports", symptom: "Logo Warp", flaw: "Fixed width/height CSS rules." },
+            { id: 49, category: "Ops / Reports", symptom: "Waitlist Opp Report Fail", flaw: "Query missed 'Archive' season filter." },
+            { id: 50, category: "Ops / Reports", symptom: "Jersey Status Desync", flaw: "UI update succeeded but DB failed." },
+            { id: 51, category: "Security/Tech", symptom: "Not Secure Warning", flaw: "Outdated TLS 1.0/1.1 protocol." },
+            { id: 52, category: "Security/Tech", symptom: "Yellow Screen of Death", flaw: "Custom Errors disabled; code leakage." },
+            { id: 53, category: "Security/Tech", symptom: "Permanent Login", flaw: "Cookie lacks expiration date." },
+            { id: 54, category: "Security/Tech", symptom: "ID Swap Vulnerability", flaw: "Insecure Direct Object Reference (IDOR)." },
+            { id: 55, category: "Security/Tech", symptom: "Mixed Content Warning", flaw: "HTTP assets loaded on HTTPS site." },
+            { id: 56, category: "Security/Tech", symptom: "Password Reset Loop", flaw: "SMTP server blacklisted by Gmail/Outlook." },
+            { id: 57, category: "Security/Tech", symptom: "No Multi-Factor (MFA)", flaw: "Legacy architecture lacks identity providers." },
+            { id: 58, category: "Security/Tech", symptom: "Directory Peek", flaw: "Directory Browsing enabled on server." },
+            { id: 59, category: "Security/Tech", symptom: "Zebra Table Glitch", flaw: "Sorting script fails to re-paint CSS." },
+            { id: 60, category: "Security/Tech", symptom: "Unresponsive Cancel", flaw: "jQuery version conflict." },
+            { id: 61, category: "Registration", symptom: "Waiver Missing", flaw: "E-Signature save failed in final step." },
+            { id: 62, category: "Registration", symptom: "Playing Age Error", flaw: "Wrong year used in cutoff logic." },
+            { id: 63, category: "Registration", symptom: "Prior Reg Count Fail", flaw: "MemberID/RegistrationID link failed." },
+            { id: 64, category: "Registration", symptom: "Starts Date Desync", flaw: "Pulled Season Start vs Program Start." },
+            { id: 65, category: "Registration", symptom: "Venue Overlap", flaw: "Conflict checker ignored in Rapid Entry." },
+            { id: 66, category: "League Mgmt", symptom: "Team Code Void", flaw: "DB update missed the UI GridView." },
+            { id: 67, category: "League Mgmt", symptom: "Roster Print Cutoff", flaw: "Print CSS forced early page break." },
+            { id: 68, category: "League Mgmt", symptom: "Score Post Lag", flaw: "Sync job stuck between FM and App." },
+            { id: 69, category: "League Mgmt", symptom: "Coach Recruitment Lie", flaw: "Failed to filter 'Declined' volunteers." },
+            { id: 70, category: "League Mgmt", symptom: "Background Check Hang", flaw: "Callback from screening company failed." },
+            { id: 71, category: "General", symptom: "Fragmented Reports", flaw: "Old relational database silos." },
+            { id: 72, category: "General", symptom: "Blue Line Layout Break", flaw: "Absolute positioning breaks on small screens." },
+            { id: 73, category: "General", symptom: "Slow Script Lag", flaw: "Browser busy processing synchronous old code." },
+            { id: 74, category: "General", symptom: "SSN/DOB Leak", flaw: "Sensitive info carried in ViewState." },
+            { id: 75, category: "General", symptom: "FM 3.0 Fatigue", flaw: "Accumulated Technical Debt." }
+        ];
+
+        let logs = JSON.parse(localStorage.getItem('i9Logs')) || [];
+        let currentFilter = 'All';
+
+        function init() {
+            renderTabs();
+            renderIssues();
+            updateMasterTally();
+        }
+
+        function renderTabs() {
+            const categories = ['All', ...new Set(fmIssues.map(i => i.category))];
+            const container = document.getElementById('categoryTabs');
+            container.innerHTML = categories.map(cat => `
+                <button onclick="setFilter('${cat}')" class="category-tab pb-2 ${currentFilter === cat ? 'active' : ''}">
+                    ${cat}
+                </button>
+            `).join('');
+        }
+
+        function renderIssues() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const grid = document.getElementById('issueGrid');
+            
+            const filtered = fmIssues.filter(i => {
+                const matchesSearch = i.symptom.toLowerCase().includes(search) || i.category.toLowerCase().includes(search);
+                const matchesCat = currentFilter === 'All' || i.category === currentFilter;
+                return matchesSearch && matchesCat;
+            });
+
+            grid.innerHTML = filtered.map(i => {
+                const count = logs.filter(l => l.issueId === i.id).length;
+                return `
+                <div class="issue-card bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-900">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-bold text-slate-400">#${i.id} | ${i.category}</span>
+                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">${count} Logs</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">${i.symptom}</h3>
+                    <p class="text-xs text-slate-500 mb-4 italic">"${i.flaw}"</p>
+                    
+                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-100">
+                        <input type="text" id="staff-${i.id}" placeholder="Staff Member" class="w-full p-2 text-sm border rounded">
+                        <input type="text" id="parent-${i.id}" placeholder="Parent/Child" class="w-full p-2 text-sm border rounded">
+                        <textarea id="notes-${i.id}" placeholder="Notes/Incident Details..." class="w-full p-2 text-sm border rounded h-12"></textarea>
+                        <button onclick="logIncident(${i.id})" class="w-full bg-blue-900 text-white font-bold py-2 rounded hover:bg-black transition-colors text-sm">
+                            LOG INCIDENT
+                        </button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function setFilter(cat) {
+            currentFilter = cat;
+            renderTabs();
+            renderIssues();
+        }
+
+        function filterIssues() {
+            renderIssues();
+        }
+
+        function logIncident(id) {
+            const staff = document.getElementById(`staff-${id}`).value;
+            const parent = document.getElementById(`parent-${id}`).value;
+            const notes = document.getElementById(`notes-${id}`).value;
+            
+            if(!staff) { alert("Please enter staff name"); return; }
+
+            const issue = fmIssues.find(i => i.id === id);
+            const newLog = {
+                timestamp: new Date().toLocaleString(),
+                issueId: id,
+                category: issue.category,
+                symptom: issue.symptom,
+                staff: staff,
+                parent: parent,
+                notes: notes
+            };
+
+            logs.push(newLog);
+            localStorage.setItem('i9Logs', JSON.stringify(logs));
+            
+            document.getElementById(`staff-${id}`).value = '';
+            document.getElementById(`parent-${id}`).value = '';
+            document.getElementById(`notes-${id}`).value = '';
+
+            updateMasterTally();
+            renderIssues();
+        }
+
+        function updateMasterTally() {
+            document.getElementById('master-tally').innerText = logs.length;
+        }
+
+        function exportToCSV() {
+            if(logs.length === 0) { alert("No logs to export!"); return; }
+            
+            let csv = "Timestamp,Issue ID,Category,Symptom,Staff,Parent/Child,Notes\n";
+            logs.forEach(l => {
+                csv += `"${l.timestamp}","${l.issueId}","${l.category}","${l.symptom}","${l.staff}","${l.parent}","${l.notes.replace(/"/g, '""')}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `i9_Diagnostic_Report_${new Date().toLocaleDateString()}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        init();
+    </script>
+</body>
+</html>
